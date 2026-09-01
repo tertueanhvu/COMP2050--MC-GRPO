@@ -1,0 +1,66 @@
+
+
+
+
+tag:
+  - math_word_problems
+task: gsm8k_cot_boxed_5shot
+dataset_path: openai/gsm8k
+dataset_name: main
+output_type: generate_until
+test_split: test
+# doc_to_text MATCHES the GRPO training prompt (data/train_grpo_3mode.jsonl),
+# minus the mode prefix. The model was trained to emit `<think>...</think>
+# \boxed{N}`; the original plain "Question:/Answer:" template was
+# off-distribution -> model never produced \boxed{} -> strict-match = 0.
+doc_to_text: "provide your reasoning in <think> tags, then put your final answer in \\boxed{}\n\n{{question}} Please reason step by step, and put your final answer within \\boxed{}. Do NOT include explanations or reasoning in the final answer - only the numeric value in \\boxed{}."
+# test doc -> just the numeric answer; few-shot sample -> its `target` verbatim.
+doc_to_target: "{{answer.split('####')[-1].strip() if answer is defined else target}}"
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+    ignore_case: true
+    ignore_punctuation: false
+    regexes_to_ignore:
+      - ","
+      - "\\$"
+      - "(?s).*#### "
+      - "\\.$"
+generation_kwargs:
+  until:
+    - "Question:"
+    - "</s>"
+    - "<|im_end|>"
+  do_sample: false
+  temperature: 0.0
+num_fewshot: 5
+fewshot_config:
+  sampler: first_n
+  samples:
+    - question: "There are 15 trees in the grove. Grove workers will plant trees in the grove today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?"
+      target: "<think>There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6.</think> \\boxed{6}"
+    - question: "If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?"
+      target: "<think>There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5.</think> \\boxed{5}"
+    - question: "Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?"
+      target: "<think>Originally, Leah had 32 chocolates. Her sister had 42. So in total they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39.</think> \\boxed{39}"
+    - question: "Jason had 20 lollipops. He gave Denny some lollipops. Now Jason has 12 lollipops. How many lollipops did Jason give to Denny?"
+      target: "<think>Jason started with 20 lollipops. Then he had 12 after giving some to Denny. So he gave Denny 20 - 12 = 8.</think> \\boxed{8}"
+    - question: "Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?"
+      target: "<think>Shawn started with 5 toys. If he got 2 toys each from his mom and dad, then that is 4 more toys. 5 + 4 = 9.</think> \\boxed{9}"
+repeats: 1
+filter_list:
+  - name: "strict-match"
+    filter:
+      - function: "regex"
+        regex_pattern: "\\\\boxed\\{(.*?)\\}"   # extract from \boxed{...}, capture group 1
+        group_select: -1                          # take LAST match (final answer)
+      - function: "take_first"
+  - name: "flexible-extract"
+    filter:
+      - function: "regex"
+        group_select: -1
+        regex_pattern: "(-?[$0-9.,]{2,})|(-?[0-9]+)"
+      - function: "take_first"
+metadata:
+  version: 3.0

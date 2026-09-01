@@ -1,0 +1,31 @@
+
+
+
+# Setting: traditional GRPO advanatge + matched batching 
+condition_id: C1_III
+algorithm:    grpo
+batching:     iii
+
+sft_adapter:  outputs/sft_low/
+data_path:    data/train_grpo_3mode.jsonl
+
+max_steps:                      300        
+learning_rate:                  1.0e-5     
+per_device_train_batch_size:    1
+gradient_accumulation_steps:    72
+
+num_generations:                8          
+temperature:                    1.0
+top_p:                          0.95
+max_completion_length:          2048
+
+vllm_gpu_memory_utilization:    0.5
+vllm_enable_sleep_mode:         true
+vllm_is_correction:             true
+
+warmup_ratio:                   0.05
+save_steps:                     100        
+save_total_limit:               3
+seed:                           42
+output_dir:                     outputs/C1_III_seed42
+report_to:                      [wandb]

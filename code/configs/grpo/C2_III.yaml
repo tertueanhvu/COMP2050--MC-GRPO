@@ -1,0 +1,34 @@
+
+
+# Setting: MC-GRPO + matched batching 
+condition_id: C2_III
+algorithm:    mc_grpo
+batching:     iii
+
+sft_adapter:  outputs/sft_low/
+data_path:    data/train_grpo_3mode.jsonl
+
+# Training
+max_steps:                      300        
+learning_rate:                  1.0e-5     
+per_device_train_batch_size:    1
+gradient_accumulation_steps:    72         
+
+# Generation
+num_generations:                8          
+temperature:                    1.0
+top_p:                          0.95
+max_completion_length:          2048
+
+# vLLM 
+vllm_gpu_memory_utilization:    0.5
+vllm_enable_sleep_mode:         false
+vllm_is_correction:             true
+
+# Misc
+warmup_ratio:                   0.05
+save_steps:                     100        
+save_total_limit:               3
+seed:                           42
+output_dir:                     outputs/C2_III_seed42
+report_to:                      [wandb]
