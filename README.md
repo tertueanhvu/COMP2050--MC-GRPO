@@ -15,7 +15,7 @@ Multi-mode reasoning · Length-aware advantage scaling · Llama 3.2 3B
   <img src="https://img.shields.io/badge/COMP2050-Artificial_Intelligence-0F766E" alt="COMP2050 Artificial Intelligence">
 </p>
 
-[Method](#how-mc-grpo-works) · [Training pipeline](#training-pipeline) · [Results](#evaluation-results) · [Getting started](#getting-started) · [Project report](report.pdf)
+[Method](#how-mc-grpo-works) · [Results](#evaluation-results) · [Getting started](#getting-started) · [Project report](report.pdf)
 
 </div>
 
@@ -27,7 +27,7 @@ The project trains **Llama-3.2-3B-Instruct** to respond at three reasoning depth
 
 MC-GRPO adjusts the standard group-relative advantage using each mode's mean completion length. It aims to remove the between-mode length effect while preserving length differences within each mode. Both the comparison condition and MC-GRPO use the DAPO loss.
 
-This is an individual **COMP2050 Artificial Intelligence** project by **Tue-Anh Vu, VinUniversity**, extending the multi-mode reasoning distillation work in [LLaMA-OSS](https://github.com/Koii2k3/LLaMA-OSS). The [report](report.pdf) contains the derivation, experimental discussion, and references.
+This is an individual **COMP2050 Artificial Intelligence** project by **Tue-Anh Vu**, extending the multi-mode reasoning distillation work in [LLaMA-OSS](https://github.com/Koii2k3/LLaMA-OSS). The [report](report.pdf) contains the derivation, experimental discussion, and references.
 
 ### What is included
 
@@ -68,26 +68,7 @@ The implementation in [trainer_mc_grpo.py](src/grpo/trainer_mc_grpo.py) calls th
 
 GRPO prompts ask for reasoning inside `<think>...</think>` and a final answer inside `\boxed{...}`. The [reward function](src/grpo/reward_paper.py) extracts the last balanced boxed answer and compares it with the reference after light string normalization. A correct answer earns **1**, and a whitespace-token 5-gram repetition penalty contributes between **−0.5 and 0**. Training correctness uses string matching, so mathematically equivalent expressions are not always treated as equal.
 
-## Training pipeline
-
-```mermaid
-flowchart TD
-    A["Llama-3.2-3B-Instruct"] --> B["LoRA supervised fine-tuning"]
-    C["10,388 curated low-mode examples"] --> B
-    B --> D["Shared SFT adapter"]
-    E["Raw GSM8K + MATH training questions"] --> F["Low / medium / high prompt triples"]
-    D --> G["GRPO stage: three experiment conditions"]
-    F --> G
-    G --> H["C1_III: standard advantage + matched ordering"]
-    G --> I["C2_III: MC-GRPO + matched ordering"]
-    G --> J["C2_II: MC-GRPO + shuffled ordering"]
-    H --> K["Merge adapter into base model"]
-    I --> K
-    J --> K
-    K --> L["GSM8K / MATH500 evaluation without mode prefixes"]
-```
-
-### Experiment conditions
+## Experiment conditions
 
 | Config | Advantage | Data ordering |
 | --- | --- | --- |
@@ -111,17 +92,26 @@ Matched ordering relies on the dataset storing each question as consecutive `low
 
 ## Evaluation results
 
-The following scores come from the committed [evaluation JSON files](results/). All runs use training seed **42** and evaluate **without a reasoning-mode prefix**. GSM8K uses strict boxed-answer exact match over 1,319 examples; MATH500 uses `math_verify` over 500 examples. Values are percentages.
+The following scores reproduce **Table 3 of the [project report](report.pdf)**. The project's runs use training seed **42** and evaluate **without a reasoning-mode prefix**. GSM8K uses strict boxed-answer exact match over 1,319 examples; MATH500 uses `math_verify` over 500 examples. Values are percentages. The baseline is the prior project's result quoted in the report.
 
 | Condition | GSM8K 0-shot | GSM8K 5-shot | MATH500 0-shot | MATH500 4-shot |
 | --- | ---: | ---: | ---: | ---: |
 | GRPO, matched (`C1_III`) | 77.45 | 76.57 | 41.60 | 43.00 |
-| MC-GRPO, matched (`C2_III`) | **80.52** | **78.24** | — | 43.00 |
-| MC-GRPO, shuffled (`C2_II`) | 76.61 | 75.10 | — | — |
+| MC-GRPO, matched (`C2_III`) | **80.52** | **78.24** | **51.20** | 43.00 |
+| Baseline GRPO (unconditioned RL data) | 80.06 | 71.95 | 47.60 | **45.20** |
 
-MC-GRPO with matched ordering improves GSM8K 0-shot by **3.06 percentage points** over the matched GRPO condition, computed from the unrounded scores. The saved MATH500 4-shot runs tie at 43.00% using `math_verify`.
+Using the report's rounded scores, MC-GRPO with matched ordering improves GSM8K 0-shot by **3.07 percentage points** and MATH500 0-shot by **9.60 percentage points** over the matched GRPO condition. The two conditions tie at 43.00% on MATH500 4-shot.
 
-**Report and artifact differences:** [report.pdf](report.pdf) reports **51.2%** for MC-GRPO MATH500 0-shot, but that run's JSON is not included in this checkout. Its random-batching ablation reports **79.61% / 77.10%** on GSM8K, whereas the committed `C2_II` JSON records **76.61% / 75.10%**. The table above follows the available JSON artifacts; `—` means no corresponding result file is included.
+### Batching ablation
+
+**Table 5 of the [report](report.pdf)** compares matched and random batching on GSM8K:
+
+| MC-GRPO batching | GSM8K 0-shot | GSM8K 5-shot |
+| --- | ---: | ---: |
+| Matched | **80.52** | **78.24** |
+| Random | 79.61 | 77.10 |
+
+*Source note: these tables follow the report. The committed [evaluation JSON files](results/) do not include the MC-GRPO MATH500 0-shot run, and the saved `C2_II` run records 76.61% / 75.10%, differing from the report's random-batching scores.*
 
 ## Repository structure
 
